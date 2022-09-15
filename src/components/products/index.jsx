@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useMemo, useState } from "react";
-import { useGlobalFilter, useSortBy, useTable } from "react-table";
+import { useGlobalFilter, useSortBy, useTable,usePagination } from "react-table";
 import tw from "twin.macro";
 import { GlobalFilter } from "./globalFilter";
 
@@ -52,61 +52,17 @@ export function Products(props) {
 
   const fetchProducts = async () => {
     const response = await axios
-      .get("https://fakestoreapi.com/products")
+      .get("http://localhost:5050/review")
       .catch((err) => console.log(err));
 
     if (response) {
-      const products = response.data;
+      const products = response.data.data;
 
       console.log("Products: ", products);
       setProducts(products);
     }
   };
 
-  const data = useMemo(
-    () => [
-      {
-        id: 1,
-        title: "Fjallraven - Foldsack No. 1 Backpack, Fits 15 Laptops",
-        price: 109.95,
-        description:
-          "Your perfect pack for everyday use and walks in the forest. Stash your laptop (up to 15 inches) in the padded sleeve, your everyday",
-        category: "men's clothing",
-        image: "https://fakestoreapi.com/img/81fPKd-2AYL._AC_SL1500_.jpg",
-        rating: {
-          rate: 3.9,
-          count: 120,
-        },
-      },
-      {
-        id: 1,
-        title: "Fjallraven - Foldsack No. 1 Backpack, Fits 15 Laptops",
-        price: 109.95,
-        description:
-          "Your perfect pack for everyday use and walks in the forest. Stash your laptop (up to 15 inches) in the padded sleeve, your everyday",
-        category: "men's clothing",
-        image: "https://fakestoreapi.com/img/81fPKd-2AYL._AC_SL1500_.jpg",
-        rating: {
-          rate: 3.9,
-          count: 120,
-        },
-      },
-      {
-        id: 1,
-        title: "Fjallraven - Foldsack No. 1 Backpack, Fits 15 Laptops",
-        price: 109.95,
-        description:
-          "Your perfect pack for everyday use and walks in the forest. Stash your laptop (up to 15 inches) in the padded sleeve, your everyday",
-        category: "men's clothing",
-        image: "https://fakestoreapi.com/img/81fPKd-2AYL._AC_SL1500_.jpg",
-        rating: {
-          rate: 3.9,
-          count: 120,
-        },
-      },
-    ],
-    []
-  );
 
   const columns = useMemo(
     () => [
@@ -115,12 +71,16 @@ export function Products(props) {
         accessor: "id",
       },
       {
-        Header: "Price",
-        accessor: "price",
+        Header: "Rating",
+        accessor: "score",
       },
       {
-        Header: "Title",
-        accessor: "title",
+        Header: "Comment",
+        accessor: "text",
+      },
+      {
+        Header: "Date",
+        accessor: "date",
       },
     ],
     []
@@ -128,35 +88,18 @@ export function Products(props) {
 
   const productsData = useMemo(() => [...products], [products]);
 
-  const productsColumns = useMemo(
-    () =>
-      products[0]
-        ? Object.keys(products[0])
-            .filter((key) => key !== "rating")
-            .map((key) => {
-              if (key === "image")
-                return {
-                  Header: key,
-                  accessor: key,
-                  Cell: ({ value }) => <img src={value} />,
-                  maxWidth: 70,
-                };
+  const productsColumns = columns
 
-              return { Header: key, accessor: key };
-            })
-        : [],
-    [products]
-  );
-
+  //edit button
   const tableHooks = (hooks) => {
     hooks.visibleColumns.push((columns) => [
       ...columns,
       {
-        id: "Edit",
-        Header: "Edit",
+        id: "Details",
+        Header: "Details",
         Cell: ({ row }) => (
-          <Button onClick={() => alert("Editing: " + row.values.price)}>
-            Edit
+          <Button onClick={() => alert("Editing: " + row.values.id)}>
+            Details
           </Button>
         ),
       },
@@ -167,21 +110,32 @@ export function Products(props) {
     {
       columns: productsColumns,
       data: productsData,
+      initialState: { pageIndex: 0}
     },
     useGlobalFilter,
     tableHooks,
-    useSortBy
+    useSortBy,
+    usePagination
   );
 
   const {
     getTableProps,
     getTableBodyProps,
     headerGroups,
-    rows,
+    page,
     prepareRow,
     preGlobalFilteredRows,
     setGlobalFilter,
     state,
+    nextPage,
+    previousPage,
+    canPreviousPage,
+    canNextPage,
+    pageOptions,
+    gotoPage,
+    pageCount,
+    setPageSize,
+    
   } = tableInstance;
 
   useEffect(() => {
@@ -189,6 +143,7 @@ export function Products(props) {
   }, []);
 
   const isEven = (idx) => idx % 2 === 0;
+  const { pageIndex, pageSize } = state;
 
   return (
     <>
@@ -213,7 +168,7 @@ export function Products(props) {
           ))}
         </TableHead>
         <TableBody {...getTableBodyProps()}>
-          {rows.map((row, idx) => {
+          {page.map((row, idx) => {
             prepareRow(row);
 
             return (
@@ -231,6 +186,51 @@ export function Products(props) {
           })}
         </TableBody>
       </Table>
+      <div>
+        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
+          {"<<"}
+        </button>{" "}
+        <button onClick={() => previousPage()} disabled={!canPreviousPage}>
+          Previous
+        </button>{" "}
+        <button onClick={() => nextPage()} disabled={!canNextPage}>
+          Next
+        </button>{" "}
+        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
+          {">>"}
+        </button>{" "}
+        <span>
+          Page{" "}
+          <strong>
+            {pageIndex + 1} of {pageOptions.length}
+          </strong>{" "}
+        </span>
+        <span>
+          | Go to page:{" "}
+          <input
+            type="number"
+            defaultValue={pageIndex + 1}
+            onChange={(e) => {
+              const pageNumber = e.target.value
+                ? Number(e.target.value) - 1
+                : 0;
+              gotoPage(pageNumber);
+            }}
+            style={{ width: "50px" }}
+          />
+        </span>{" "}
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+        >
+          {[10, 25, 50].map((pageSize) => (
+            <option key={pageSize} value={pageSize}>
+              Show {pageSize}
+            </option>
+          ))}
+        </select>
+      </div>
+      
     </>
   );
 }
